@@ -342,7 +342,7 @@ jobs:
           zip -r9 "../${ZIP_NAME}" . -x ".git*" -x "*.zip"
 
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
-          echo "✅ Flashable zip created: $ZIP_NAME"
+          echo "Flashable zip created: $ZIP_NAME"
           ls -lh "../${ZIP_NAME}"
 
       # ── 16. Generate build info ───────────────────────────────────────────────
