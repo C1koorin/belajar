@@ -318,48 +318,24 @@ jobs:
 
           cd ../AnyKernel3
 
-          # Configure AnyKernel3 for vayu
-          # Configure AnyKernel3 for vayu
-          {
-            echo "kernel.string=Sancikrunul Kernel by GitHub Actions"
-            echo "do.devicecheck=1"
-            echo "do.modules=0"
-            echo "do.systemless=1"
-            echo "do.cleanup=1"
-            echo "do.cleanuponabort=0"
-            echo "device.name1=vayu"
-            echo "device.name2=bhima"
-            echo "supported.versions="
-            echo "supported.patchlevels="
-          } > anykernel.sh
-
-          cat >> anykernel.sh << ENDOFFILE
-
-. tools/ak3-core.sh;
-
-block=/dev/block/bootdevice/by-name/boot;
-is_slot_device=0;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-split_boot;
-flash_boot;
-ENDOFFILE
-
-### AnyKernel install
-# boot shell variables
-block=/dev/block/bootdevice/by-name/boot;
-is_slot_device=0;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-# import functions/variables and setup patching - see for reference
-. tools/ak3-core.sh;
-
-# boot install
-split_boot;
-flash_boot;
-ANYKERNEL_EOF
+         # Configure AnyKernel3 for vayu
+          echo "kernel.string=Sancikrunul Kernel by GitHub Actions" > anykernel.sh
+          echo "do.devicecheck=1" >> anykernel.sh
+          echo "do.modules=0" >> anykernel.sh
+          echo "do.systemless=1" >> anykernel.sh
+          echo "do.cleanup=1" >> anykernel.sh
+          echo "do.cleanuponabort=0" >> anykernel.sh
+          echo "device.name1=vayu" >> anykernel.sh
+          echo "device.name2=bhima" >> anykernel.sh
+          echo "supported.versions=" >> anykernel.sh
+          echo "supported.patchlevels=" >> anykernel.sh
+          echo ". tools/ak3-core.sh;" >> anykernel.sh
+          echo "block=/dev/block/bootdevice/by-name/boot;" >> anykernel.sh
+          echo "is_slot_device=0;" >> anykernel.sh
+          echo "ramdisk_compression=auto;" >> anykernel.sh
+          echo "patch_vbmeta_flag=auto;" >> anykernel.sh
+          echo "split_boot;" >> anykernel.sh
+          echo "flash_boot;" >> anykernel.sh
 
           # Create flashable zip
           ZIP_NAME="${{ env.OUTPUT_NAME }}${{ env.KSU_SUFFIX }}.zip"
