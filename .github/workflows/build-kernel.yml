@@ -22,7 +22,7 @@ on:
 
 env:
   KERNEL_SOURCE: https://github.com/AnymoreProject/kernel_xiaomi_vayu
-  KERNEL_BRANCH: 14.0
+  KERNEL_BRANCH: Anymore
   KERNEL_DEFCONFIG: vayu_defconfig
   KERNEL_NAME: sancikrunul
   KERNEL_VERSION: "1.0"
