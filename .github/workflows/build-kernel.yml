@@ -319,20 +319,21 @@ jobs:
           cd ../AnyKernel3
 
           # Configure AnyKernel3 for vayu
-          cat > anykernel.sh << ANYKERNEL_EOF
-# AnyKernel3 - Sancikrunul Kernel for POCO X3 Pro (vayu)
-properties() { '
-kernel.string=Sancikrunul Kernel by GitHub Actions
-do.devicecheck=1
-do.modules=0
-do.systemless=1
-do.cleanup=1
-do.cleanuponabort=0
-device.name1=vayu
-device.name2=bhima
-supported.versions=
-supported.patchlevels=
-'; }
+          # Configure AnyKernel3 for vayu
+          {
+            echo "kernel.string=Sancikrunul Kernel by GitHub Actions"
+            echo "do.devicecheck=1"
+            echo "do.modules=0"
+            echo "do.systemless=1"
+            echo "do.cleanup=1"
+            echo "do.cleanuponabort=0"
+            echo "device.name1=vayu"
+            echo "device.name2=bhima"
+            echo "supported.versions="
+            echo "supported.patchlevels="
+          } > anykernel.sh
+
+          cat >> anykernel.sh << ENDOFFILE
 
 . tools/ak3-core.sh;
 
@@ -343,7 +344,7 @@ patch_vbmeta_flag=auto;
 
 split_boot;
 flash_boot;
-ANYKERNEL_EOF
+ENDOFFILE
 
 ### AnyKernel install
 # boot shell variables
