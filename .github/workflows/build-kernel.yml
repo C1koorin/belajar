@@ -319,11 +319,8 @@ jobs:
           cd ../AnyKernel3
 
           # Configure AnyKernel3 for vayu
-          cat > anykernel.sh << 'ANYKERNEL_EOF'
+          cat > anykernel.sh << ANYKERNEL_EOF
 # AnyKernel3 - Sancikrunul Kernel for POCO X3 Pro (vayu)
-# osm0sis @ xda-developers
-
-### AnyKernel setup
 properties() { '
 kernel.string=Sancikrunul Kernel by GitHub Actions
 do.devicecheck=1
@@ -336,6 +333,17 @@ device.name2=bhima
 supported.versions=
 supported.patchlevels=
 '; }
+
+. tools/ak3-core.sh;
+
+block=/dev/block/bootdevice/by-name/boot;
+is_slot_device=0;
+ramdisk_compression=auto;
+patch_vbmeta_flag=auto;
+
+split_boot;
+flash_boot;
+ANYKERNEL_EOF
 
 ### AnyKernel install
 # boot shell variables
