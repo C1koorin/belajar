@@ -61,7 +61,8 @@ jobs:
             gcc-arm-linux-gnueabi \
             binutils-aarch64-linux-gnu \
             binutils-arm-linux-gnueabi \
-            cpio lz4 ccache
+            cpio lz4 ccache \
+            llvm lld clang
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
