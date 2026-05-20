@@ -150,8 +150,7 @@ jobs:
 
       - name: Download stock boot.img
         run: |
-          pip3 install gdown
-          python3 -m gdown "https://drive.google.com/uc?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj" -O boot.img
+          curl -L "https://drive.usercontent.google.com/download?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj&export=download&confirm=t" -o boot.img
           ls -lh boot.img
           
       - name: Repack boot.img with new kernel
