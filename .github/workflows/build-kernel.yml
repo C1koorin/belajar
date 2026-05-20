@@ -146,23 +146,7 @@ jobs:
             cp out/arch/arm64/boot/dtbo.img ../AnyKernel3/
           fi
           cd ../AnyKernel3
-          echo "kernel.string=Sancikrunul Kernel by GitHub Actions" > anykernel.sh
-          echo "do.devicecheck=1" >> anykernel.sh
-          echo "do.modules=0" >> anykernel.sh
-          echo "do.systemless=1" >> anykernel.sh
-          echo "do.cleanup=1" >> anykernel.sh
-          echo "do.cleanuponabort=0" >> anykernel.sh
-          echo "device.name1=vayu" >> anykernel.sh
-          echo "device.name2=bhima" >> anykernel.sh
-          echo "supported.versions=" >> anykernel.sh
-          echo "supported.patchlevels=" >> anykernel.sh
-          echo ". tools/ak3-core.sh;" >> anykernel.sh
-          echo "block=/dev/block/bootdevice/by-name/boot;" >> anykernel.sh
-          echo "is_slot_device=0;" >> anykernel.sh
-          echo "ramdisk_compression=auto;" >> anykernel.sh
-          echo "patch_vbmeta_flag=auto;" >> anykernel.sh
-          echo "split_boot;" >> anykernel.sh
-          echo "flash_boot;" >> anykernel.sh
+          cp ${GITHUB_WORKSPACE}/anykernel.sh ./anykernel.sh
           ZIP_NAME="${{ env.OUTPUT_NAME }}${{ env.KSU_SUFFIX }}.zip"
           zip -r9 "../${ZIP_NAME}" . -x ".git*" -x "*.zip"
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
