@@ -150,10 +150,10 @@ jobs:
 
       - name: Download stock boot.img
         run: |
-          pip3 install gdown --break-system-packages --quiet
+          pip3 install gdown
           python3 -m gdown "https://drive.google.com/uc?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj" -O boot.img
           ls -lh boot.img
-
+          
       - name: Repack boot.img with new kernel
         run: |
           cd kernel_source
