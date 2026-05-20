@@ -96,12 +96,6 @@ jobs:
           rm $HOME/clang.tar.gz
           echo "CLANG_PATH=$HOME/clang/bin" >> $GITHUB_ENV
 
-      - name: Download mkbootimg tools
-        run: |
-          wget -q https://raw.githubusercontent.com/osm0sis/mkbootimg/master/mkbootimg.py -O /usr/local/bin/mkbootimg
-          chmod +x /usr/local/bin/mkbootimg
-          pip3 install gdown --break-system-packages --quiet
-
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 --branch "${{ env.KERNEL_BRANCH }}" "${{ env.KERNEL_SOURCE }}" kernel_source
@@ -163,8 +157,6 @@ jobs:
       - name: Repack boot.img with new kernel
         run: |
           cd kernel_source
-
-          # Determine kernel image path
           if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
             KERNEL_IMAGE="out/arch/arm64/boot/Image.gz-dtb"
           elif [ -f "out/arch/arm64/boot/Image.gz" ]; then
@@ -173,51 +165,14 @@ jobs:
             KERNEL_IMAGE="out/arch/arm64/boot/Image"
           fi
           echo "Using kernel image: $KERNEL_IMAGE"
-
-          # Install Android boot tools
-          pip3 install --quiet android-tools 2>/dev/null || true
-
-          # Use mkbootimg to create new boot.img with stock parameters from HyperOS 2
-          python3 -c "
-          import subprocess, sys
-
-          kernel = '../kernel_source/$KERNEL_IMAGE'
-          output = '../new_boot.img'
-
-          # Parameters extracted from stock HyperOS 2 boot.img
-          cmd = [
-              'python3', '/usr/local/bin/mkbootimg',
-              '--kernel', kernel,
-              '--base', '0x00000000',
-              '--kernel_offset', '0x00008000',
-              '--ramdisk_offset', '0x01000000',
-              '--tags_offset', '0x00000100',
-              '--pagesize', '4096',
-              '--header_version', '2',
-              '--cmdline', 'console=ttyMSM0,115200n8 androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 loop.max_part=7 androidboot.usbcontroller=a600000.dwc3 buildvariant=user',
-              '--output', output,
-          ]
-          result = subprocess.run(cmd, capture_output=True, text=True)
-          if result.returncode != 0:
-              print('mkbootimg error:', result.stderr)
-              sys.exit(1)
-          print('boot.img created successfully')
-          " || echo "mkbootimg python failed, trying direct"
-
-          # Fallback: use magiskboot to repack
-          if [ ! -f "../new_boot.img" ]; then
-            echo "Trying magiskboot method..."
-            wget -q https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk -O Magisk.apk
-            unzip -p Magisk.apk lib/x86_64/libmagiskboot.so > magiskboot
-            chmod +x magiskboot
-
-            cp ../boot.img ./boot.img
-
-            cp $KERNEL_IMAGE kernel
-            ./magiskboot repack boot.img ../new_boot.img
-            echo "Repacked with magiskboot"
-          fi
-
+          wget -q https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk -O Magisk.apk
+          unzip -p Magisk.apk lib/x86_64/libmagiskboot.so > magiskboot
+          chmod +x magiskboot
+          cp ../boot.img ./boot.img
+          ./magiskboot unpack boot.img
+          cp $KERNEL_IMAGE kernel
+          ./magiskboot repack boot.img ../new_boot.img
+          echo "Repack done"
           ls -lh ../new_boot.img
 
       - name: Package AnyKernel3 zip
