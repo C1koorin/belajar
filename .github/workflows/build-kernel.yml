@@ -32,12 +32,15 @@ env:
   CROSS_COMPILE_ARM32: arm-linux-gnueabi-
   ANYKERNEL_URL: https://github.com/osm0sis/AnyKernel3
   ANYKERNEL_BRANCH: master
+  MKBOOTIMG_URL: https://android.googlesource.com/platform/system/tools/mkbootimg
 
 jobs:
   build:
     name: Build Kernel
     runs-on: ubuntu-22.04
     timeout-minutes: 120
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -55,14 +58,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y \
             git curl wget zip unzip bc bison flex \
-            libssl-dev libelf-dev python3 make \
+            libssl-dev libelf-dev python3 python3-pip make \
             gcc g++ \
             gcc-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi \
             binutils-aarch64-linux-gnu \
             binutils-arm-linux-gnueabi \
             cpio lz4 ccache \
-            llvm lld clang
+            llvm lld clang \
+            lzma xz-utils
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -91,6 +95,14 @@ jobs:
           tar -xzf $HOME/clang.tar.gz -C $HOME/clang --strip-components=1
           rm $HOME/clang.tar.gz
           echo "CLANG_PATH=$HOME/clang/bin" >> $GITHUB_ENV
+
+      - name: Download mkbootimg tools
+        run: |
+          pip3 install --quiet gdown
+          wget -q https://raw.githubusercontent.com/osm0sis/mkbootimg/master/mkbootimg.py -O /usr/local/bin/mkbootimg
+          wget -q https://raw.githubusercontent.com/osm0sis/mkbootimg/master/unpackbootimg.py -O /usr/local/bin/unpackbootimg
+          chmod +x /usr/local/bin/mkbootimg /usr/local/bin/unpackbootimg
+          pip3 install --quiet mkbootimg || true
 
       - name: Clone Kernel Source
         run: |
@@ -124,32 +136,118 @@ jobs:
           export PATH="${{ env.CLANG_PATH }}:$PATH"
           export USE_CCACHE=1
           export CCACHE_EXEC=$(which ccache)
-          make O=out ARCH=arm64 SUBARCH=arm64 CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=${{ env.CROSS_COMPILE }} CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} LOCALVERSION=-${{ env.KERNEL_NAME }} LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip -j$(nproc --all) 2>&1 | tee build.log
+          make O=out ARCH=arm64 SUBARCH=arm64 \
+            CC="ccache clang" \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
+            CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} \
+            LOCALVERSION=-${{ env.KERNEL_NAME }} \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
+            -j$(nproc --all) 2>&1 | tee build.log
           if [ ! -f "out/arch/arm64/boot/Image.gz-dtb" ] && [ ! -f "out/arch/arm64/boot/Image" ]; then
-            echo "BUILD FAILED - no output image found"
+            echo "BUILD FAILED"
             tail -50 build.log
             exit 1
           fi
           echo "Build successful"
 
-      - name: Package with AnyKernel3
+      - name: Download stock boot.img
+        run: |
+          pip3 install --quiet gdown
+          gdown "https://drive.google.com/uc?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj" -O boot.img
+          ls -lh boot.img
+
+      - name: Repack boot.img with new kernel
+        run: |
+          cd kernel_source
+
+          # Determine kernel image path
+          if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+            KERNEL_IMAGE="out/arch/arm64/boot/Image.gz-dtb"
+          elif [ -f "out/arch/arm64/boot/Image.gz" ]; then
+            KERNEL_IMAGE="out/arch/arm64/boot/Image.gz"
+          else
+            KERNEL_IMAGE="out/arch/arm64/boot/Image"
+          fi
+          echo "Using kernel image: $KERNEL_IMAGE"
+
+          # Install Android boot tools
+          pip3 install --quiet android-tools 2>/dev/null || true
+
+          # Use mkbootimg to create new boot.img with stock parameters from HyperOS 2
+          python3 -c "
+          import subprocess, sys
+
+          kernel = '../kernel_source/$KERNEL_IMAGE'
+          output = '../new_boot.img'
+
+          # Parameters extracted from stock HyperOS 2 boot.img
+          cmd = [
+              'python3', '/usr/local/bin/mkbootimg',
+              '--kernel', kernel,
+              '--base', '0x00000000',
+              '--kernel_offset', '0x00008000',
+              '--ramdisk_offset', '0x01000000',
+              '--tags_offset', '0x00000100',
+              '--pagesize', '4096',
+              '--header_version', '2',
+              '--cmdline', 'console=ttyMSM0,115200n8 androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 loop.max_part=7 androidboot.usbcontroller=a600000.dwc3 buildvariant=user',
+              '--output', output,
+          ]
+          result = subprocess.run(cmd, capture_output=True, text=True)
+          if result.returncode != 0:
+              print('mkbootimg error:', result.stderr)
+              sys.exit(1)
+          print('boot.img created successfully')
+          " || echo "mkbootimg python failed, trying direct"
+
+          # Fallback: use magiskboot to repack
+          if [ ! -f "../new_boot.img" ]; then
+            echo "Trying magiskboot method..."
+            wget -q https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk -O Magisk.apk
+            unzip -p Magisk.apk lib/x86_64/libmagiskboot.so > magiskboot
+            chmod +x magiskboot
+
+            cp ../boot.img ./boot.img
+
+            cp $KERNEL_IMAGE kernel
+            ./magiskboot repack boot.img ../new_boot.img
+            echo "Repacked with magiskboot"
+          fi
+
+          ls -lh ../new_boot.img
+
+      - name: Package AnyKernel3 zip
         run: |
           git clone --depth=1 --branch "${{ env.ANYKERNEL_BRANCH }}" "${{ env.ANYKERNEL_URL }}" AnyKernel3
           cd kernel_source
+
           if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
             cp out/arch/arm64/boot/Image.gz-dtb ../AnyKernel3/
-          fi
-          if [ -f "out/arch/arm64/boot/Image" ]; then
+          elif [ -f "out/arch/arm64/boot/Image" ]; then
             cp out/arch/arm64/boot/Image ../AnyKernel3/
           fi
           if [ -f "out/arch/arm64/boot/dtbo.img" ]; then
             cp out/arch/arm64/boot/dtbo.img ../AnyKernel3/
           fi
+
           cd ../AnyKernel3
           cp ${GITHUB_WORKSPACE}/anykernel.sh ./anykernel.sh
+
           ZIP_NAME="${{ env.OUTPUT_NAME }}${{ env.KSU_SUFFIX }}.zip"
           zip -r9 "../${ZIP_NAME}" . -x ".git*" -x "*.zip"
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+      - name: Rename boot.img
+        run: |
+          BOOT_NAME="${{ env.OUTPUT_NAME }}${{ env.KSU_SUFFIX }}-boot.img"
+          cp new_boot.img "${BOOT_NAME}" 2>/dev/null || true
+          echo "BOOT_NAME=${BOOT_NAME}" >> $GITHUB_ENV
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -157,6 +255,7 @@ jobs:
           name: ${{ env.OUTPUT_NAME }}${{ env.KSU_SUFFIX }}
           path: |
             ${{ env.ZIP_NAME }}
+            ${{ env.BOOT_NAME }}
             kernel_source/build.log
           retention-days: 7
 
@@ -174,18 +273,21 @@ jobs:
             KernelSU Next: ${{ env.WITH_KSU }}
             Build Date: ${{ env.BUILD_DATE }}
 
-            Features:
-            - Custom kernel name: Sancikrunul
-            - KernelSU Next root manager
-            - Based on AnymoreProject kernel_xiaomi_vayu
-            - Optimized for HyperOS 2
+            HOW TO INSTALL - METHOD 1 (Recommended - Fastboot):
+            1. Enable USB Debugging
+            2. adb reboot bootloader
+            3. fastboot flash boot <boot.img filename>
+            4. fastboot reboot
+            5. Install KernelSU Manager APK
 
-            Installation:
-            1. Boot into Custom Recovery (TWRP/OrangeFox)
-            2. Flash the zip file
-            3. If using KernelSU Next, install KernelSU Manager APK after boot
-            4. Reboot
-          files: ${{ env.ZIP_NAME }}
+            HOW TO INSTALL - METHOD 2 (Recovery/AnyKernel3):
+            1. Boot into OrangeFox Recovery
+            2. Flash the .zip file
+            3. Reboot
+            4. Install KernelSU Manager APK
+          files: |
+            ${{ env.ZIP_NAME }}
+            ${{ env.BOOT_NAME }}
           draft: false
           prerelease: false
         env:
