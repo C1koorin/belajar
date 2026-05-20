@@ -98,11 +98,9 @@ jobs:
 
       - name: Download mkbootimg tools
         run: |
-          pip3 install --quiet gdown
           wget -q https://raw.githubusercontent.com/osm0sis/mkbootimg/master/mkbootimg.py -O /usr/local/bin/mkbootimg
-          wget -q https://raw.githubusercontent.com/osm0sis/mkbootimg/master/unpackbootimg.py -O /usr/local/bin/unpackbootimg
-          chmod +x /usr/local/bin/mkbootimg /usr/local/bin/unpackbootimg
-          pip3 install --quiet mkbootimg || true
+          chmod +x /usr/local/bin/mkbootimg
+          pip3 install gdown --break-system-packages --quiet
 
       - name: Clone Kernel Source
         run: |
@@ -158,8 +156,8 @@ jobs:
 
       - name: Download stock boot.img
         run: |
-          pip3 install --quiet gdown
-          gdown "https://drive.google.com/uc?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj" -O boot.img
+          pip3 install gdown --break-system-packages --quiet
+          python3 -m gdown "https://drive.google.com/uc?id=1959AX0gYde5RUKn8MMbO6T0tG_-VepHj" -O boot.img
           ls -lh boot.img
 
       - name: Repack boot.img with new kernel
